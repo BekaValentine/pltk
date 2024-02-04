@@ -20,9 +20,11 @@ type SourceCode = String
 
 parseSource :: String
             -> String
-            -> Either (MP.ParseErrorBundle String CSMLParseError) CSML.Grammar
-parseSource =
-    MP.parse (spaceWithComments *> grammar <* MP.eof)
+            -> Either String CSML.Grammar
+parseSource fileName source =
+    case MP.parse (spaceWithComments *> grammar <* MP.eof) fileName source of
+        Left err -> Left (MP.errorBundlePretty err)
+        Right x -> Right x
 
 
 

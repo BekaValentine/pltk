@@ -37,12 +37,6 @@ hasUnboundVariables e =
         UnboundVariable _ _ -> True
         _ -> False
 
-parseSource :: String -> String -> Either String Grammar
-parseSource fileName source =
-    case CSML.parseSource fileName source of
-        Left err -> Left (MP.errorBundlePretty err)
-        Right x -> Right x
-
 main :: IO ()
 main = hspec $ do
 
@@ -53,7 +47,7 @@ main = hspec $ do
         context "when provided nonsense `nonsense`" $ do
 
             let src = "nonsense"
-                actual = parseSource "test_nonsense" src
+                actual = CSML.parseSource "test_nonsense" src
 
             it "parses successfully" $ shouldNotSatisfy actual parseSucceeded
 
@@ -62,7 +56,7 @@ main = hspec $ do
             let src = "foo = \"foo\";"
                 expected =
                     [ lexemeSynonymClause "foo" (slex "foo") ]
-                actual = parseSource "test_lexical_synonym_clause_with_string" src
+                actual = CSML.parseSource "test_lexical_synonym_clause_with_string" src
 
             it "parses successfully" $
                 shouldSatisfy actual parseSucceeded
@@ -75,7 +69,7 @@ main = hspec $ do
             let src = "foo = /foo?/;"
                 expected =
                     [ lexemeSynonymClause "foo" (rlex "foo?") ]
-                actual = parseSource "test_lexical_synonym_clause_with_regex" src
+                actual = CSML.parseSource "test_lexical_synonym_clause_with_regex" src
 
             it "parses successfully" $
                 shouldSatisfy actual parseSucceeded
@@ -93,7 +87,7 @@ main = hspec $ do
                                 rule "foo" [l (slex "foo")]
                             ]
                      ]
-                actual = parseSource "test_syntax_type_clause" src
+                actual = CSML.parseSource "test_syntax_type_clause" src
 
             it "parses successfully" $
                 shouldSatisfy actual parseSucceeded
@@ -186,7 +180,7 @@ main = hspec $ do
                     , lexemeSynonymClause "vn" (rlex "[a-z][a-zA-Z0-9_]*")
                      ]
                 
-                actual = parseSource "test_stlc" src
+                actual = CSML.parseSource "test_stlc" src
 
             it "parses successfully" $
                 shouldSatisfy actual parseSucceeded

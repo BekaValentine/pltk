@@ -56,19 +56,19 @@ In this grammar we can see
 type Grammar = [Clause]
 
 data Clause
-    = SyntaxTypeClause TypeName [VariableName] [Rule]
-    | LexemeSynonymClause VariableName Lexeme
+    = SyntaxTypeClause Meta TypeName [VariableName] [Rule]
+    | LexemeSynonymClause Meta VariableName Lexeme
     deriving (Show, Eq)
 
 syntaxTypeClause :: String -> [String] -> [Rule] -> Clause
 syntaxTypeClause tn vns =
-    SyntaxTypeClause
+    SyntaxTypeClause []
         (TypeName tn)
         (map VariableName vns)
 
 lexemeSynonymClause :: String -> Lexeme -> Clause
 lexemeSynonymClause vn =
-    LexemeSynonymClause
+    LexemeSynonymClause []
         (VariableName vn)
 
 newtype TypeName = TypeName String
@@ -78,11 +78,11 @@ newtype VariableName = VariableName String
     deriving (Show, Eq)
 
 data Rule
-    = Rule RuleName [RulePart]
+    = Rule Meta RuleName [RulePart]
     deriving (Show, Eq)
 
 rule :: String -> [RulePart] -> Rule
-rule rn = Rule (RuleName rn)
+rule rn = Rule [] (RuleName rn)
 
 newtype RuleName = RuleName String
     deriving (Show, Eq)
@@ -127,7 +127,58 @@ grammarToVariableInfoMapping g =
     g >>= clauseToVariableInfoMapping
 
 clauseToVariableInfoMapping :: Clause -> VariableInfoMapping
-clauseToVariableInfoMapping (SyntaxTypeClause tn vns _) =
+clauseToVariableInfoMapping (SyntaxTypeClause _ tn vns _) =
     [ (vn,SyntaxTypeVariable tn) | VariableName vn <- vns ]
-clauseToVariableInfoMapping (LexemeSynonymClause (VariableName vn) lx) =
+clauseToVariableInfoMapping (LexemeSynonymClause _ (VariableName vn) lx) =
     [ (vn,LexemeVariable lx) ]
+
+
+
+
+
+type Meta = [MetaInfo]
+
+data MetaInfo
+    = MetaSourceSpan SourceSpan
+    | MetaSourceText String
+    deriving (Show, Eq)
+
+data SourceSpan
+    = SourceSpan
+        { start :: SourcePosition
+        , end :: SourcePosition
+        }
+    deriving (Show, Eq)
+
+data SourcePosition
+    = SourcePosition
+        { line :: Int
+        , column :: Int
+        }
+    deriving (Show, Eq)
+
+
+
+stripMetaGrammar :: Grammar -> Grammar
+stripMetaGrammar = map stripMetaClause
+
+stripMetaClause :: Clause -> Clause
+stripMetaClause (SyntaxTypeClause _ tn vns rs) =
+    SyntaxTypeClause [] tn vns (map stripMetaRule rs)
+stripMetaClause (LexemeSynonymClause _ vn lx) = LexemeSynonymClause [] vn lx
+
+stripMetaRule :: Rule -> Rule
+stripMetaRule (Rule _ rn parts) = Rule [] rn parts
+
+getMetaClause :: Clause -> Meta
+getMetaClause (SyntaxTypeClause m _ _ _) = m
+getMetaClause (LexemeSynonymClause m _ _) = m
+
+getMetaRule :: Rule -> Meta
+getMetaRule (Rule m _ _) = m
+
+getSourceText :: Meta -> Maybe String
+getSourceText m =
+    case filter (\x -> case x of { (MetaSourceText _) -> True ; _ -> False }) m of
+        [MetaSourceText x] -> Just x
+        _ -> Nothing

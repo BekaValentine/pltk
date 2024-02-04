@@ -3,6 +3,7 @@ module CSML.CFG where
 import Data.List (intercalate, nub)
 
 import qualified CSML.Grammar as CSML
+import CSML.TextTools
 
 
 newtype CFG
@@ -25,9 +26,6 @@ data RulePart
     | NonTerminalPart NonTerminal
     deriving (Show, Eq)
 
-
-unlines' :: [String] -> String
-unlines' = intercalate "\n"
 
 cfgToBNF :: CFG -> String
 cfgToBNF g@(CFG rules) = 
@@ -71,17 +69,17 @@ grammarToCFG g = CFG (g >>= clauseToRules vim)
         vim = CSML.grammarToVariableInfoMapping g
 
 clauseToRules :: CSML.VariableInfoMapping -> CSML.Clause -> [Rule]
-clauseToRules vim (CSML.SyntaxTypeClause (CSML.TypeName tn) _ rules) =
+clauseToRules vim (CSML.SyntaxTypeClause _ (CSML.TypeName tn) _ rules) =
     let (rns, rs) = unzip (map (ruleToRuleNameAndRule vim) rules)
         typeRules =
             [ Rule (NonTerminal tn) [NonTerminalPart (NonTerminal rn)]
             | rn <- rns
             ] 
     in typeRules ++ rs
-clauseToRules _ (CSML.LexemeSynonymClause _ _) = []
+clauseToRules _ (CSML.LexemeSynonymClause _ _ _) = []
 
 ruleToRuleNameAndRule :: CSML.VariableInfoMapping -> CSML.Rule -> (String,Rule)
-ruleToRuleNameAndRule vim (CSML.Rule (CSML.RuleName rn) parts) =
+ruleToRuleNameAndRule vim (CSML.Rule _ (CSML.RuleName rn) parts) =
     (rn, Rule (NonTerminal rn) [ partToPart vim part | part <- parts ])
 
 partToPart :: CSML.VariableInfoMapping -> CSML.RulePart -> RulePart

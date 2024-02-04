@@ -3,27 +3,21 @@ module CSML.Elaborator where
 
 import Control.Monad.State
 import Data.List
+import Data.Maybe
+import Data.String.Utils (strip)
 
 import CSML.Grammar
+import CSML.TextTools
 
 newtype ElabState = ElabState { errors :: [ElabError] }
+    deriving (Show)
 
 emptyElabState :: ElabState
 emptyElabState = ElabState { errors = [] }
 
-data ElabError
-    = RepeatedVariable VariableName [RepeatedVariableLocation]
-    | UnboundVariable VariableName UnboundVariableLocation
-    deriving (Show)
 
-data RepeatedVariableLocation
-    = InSyntaxTypeClause Clause
-    | InLexemeSynonymClause Clause
-    deriving (Show, Eq)
 
-data UnboundVariableLocation
-    = InRule Clause Int -- Int = rule index
-    deriving (Show)
+
 
 newtype Elaborator a = Elaborator { runElab :: State ElabState a }
     deriving (Functor, Applicative, Monad, MonadState ElabState)
@@ -56,19 +50,19 @@ collectBindingVariablesGrammar g = g >>= collectBindingVariablesClause
 
 collectBindingVariablesClause
     :: Clause -> [(VariableName, RepeatedVariableLocation)]
-collectBindingVariablesClause clause@(SyntaxTypeClause _ vns _) =
-    [ (vn, InSyntaxTypeClause clause) | vn <- vns ]
-collectBindingVariablesClause clause@(LexemeSynonymClause vn _) =
-    [(vn, InLexemeSynonymClause clause)]
+collectBindingVariablesClause clause@(SyntaxTypeClause _ _ vns _) =
+    [ (vn, clause) | vn <- vns ]
+collectBindingVariablesClause clause@(LexemeSynonymClause _ vn _) =
+    [(vn, clause)]
 
 
 elabClause :: Context -> Clause -> Elaborator ()
-elabClause ctx clause@(SyntaxTypeClause _ _ rs) =
+elabClause ctx clause@(SyntaxTypeClause _ _ _ rs) =
     zipWithM_ (elabRule ctx clause) [0..] rs
-elabClause _ (LexemeSynonymClause _ _) = return ()
+elabClause _ (LexemeSynonymClause {}) = return ()
 
 elabRule :: Context -> Clause -> Int -> Rule -> Elaborator ()
-elabRule ctx clause i (Rule _ parts) = mapM_ (elabRulePart ctx clause i) parts
+elabRule ctx clause i (Rule _ _ parts) = mapM_ (elabRulePart ctx clause i) parts
 
 elabRulePart :: Context -> Clause -> Int -> RulePart -> Elaborator ()
 elabRulePart ctx clause i (VariablePart vn) =
@@ -76,3 +70,53 @@ elabRulePart ctx clause i (VariablePart vn) =
         then return ()
         else addError $ UnboundVariable vn (InRule clause i)
 elabRulePart _ _ _ (LexemePart _) = return ()
+
+
+
+
+data ElabError
+    = RepeatedVariable VariableName [Clause]
+    | UnboundVariable VariableName UnboundVariableLocation
+    deriving (Show)
+
+type RepeatedVariableLocation = Clause
+
+data UnboundVariableLocation
+    = InRule Clause Int -- Int = rule index
+    deriving (Show)
+
+prettyElabErrors :: [ElabError] -> String
+prettyElabErrors errs = intercalate "\n" (errs >>= prettyElabError)
+
+prettyElabError :: ElabError -> [String]
+prettyElabError (RepeatedVariable (VariableName vn) locs) =
+    ""
+    : ("Repeated variable " ++ vn)
+    : "In locations:"
+    : ""
+    : indent 2 (locs >>= prettyRepeatedVariableLocation)
+prettyElabError (UnboundVariable (VariableName vn) loc) =
+    ""
+    : ("Unbound variable " ++ vn)
+    : "In location:"
+    : indent 2 (prettyUnboundVariableLocation loc)
+
+prettyRepeatedVariableLocation :: RepeatedVariableLocation -> [String]
+prettyRepeatedVariableLocation cls =
+    maybe ["unknown-source"] (\x -> [strip x]) (getSourceText (getMetaClause cls))
+
+prettyUnboundVariableLocation :: UnboundVariableLocation -> [String]
+prettyUnboundVariableLocation (InRule (SyntaxTypeClause cm (TypeName tn) _ rs) i) =
+    let Rule rm (RuleName rn) _ = rs !! i
+        rsrc = strip (fromMaybe "unknown-source" (getSourceText rm))
+        csrc = strip (fromMaybe "unknown-source" (getSourceText cm))
+    in
+        [ "Syntax type definition for " ++ tn
+        , "In rule " ++ rn
+        , ""
+        , "  " ++ rsrc
+        , "of clause"
+        , ""
+        , csrc
+        ]
+prettyUnboundVariableLocation _ = []

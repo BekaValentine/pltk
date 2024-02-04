@@ -13,17 +13,27 @@ import Test.Hspec
 
 import CSML.CFG
 import CSML.Grammar
-    ( Grammar, syntaxTypeClause, lexemeSynonymClause, rule, v, l, slex, rlex )
+    ( Grammar
+    , syntaxTypeClause
+    , lexemeSynonymClause
+    , rule
+    , v
+    , l
+    , slex
+    , rlex
+    , stripMetaGrammar
+    )
 import qualified CSML.CSMLParser as CSML
 import CSML.Elaborator
+import CSML.TextTools
 
-parseSucceeded :: Either a b -> Bool
+parseSucceeded :: Either a Grammar -> Bool
 parseSucceeded (Left _) = False
 parseSucceeded (Right _) = True
 
-parseSucceededWith :: Eq b => b -> Either a b -> Bool
+parseSucceededWith :: Grammar -> Either a Grammar -> Bool
 parseSucceededWith _ (Left _) = False
-parseSucceededWith x (Right y) = x == y
+parseSucceededWith x (Right y) = stripMetaGrammar x == stripMetaGrammar y
 
 hasRepeatedVariables :: ElabError -> Bool
 hasRepeatedVariables e =

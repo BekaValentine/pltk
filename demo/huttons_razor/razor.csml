@@ -1,0 +1,9 @@
+Expr M, N
+    ::= n         (literal)
+      | M "+" N   (plus)
+      ;
+
+Nat m, m
+    ::= "0"     (zero)
+      | "s" n   (successor)
+      ;

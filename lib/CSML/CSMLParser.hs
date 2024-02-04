@@ -28,6 +28,16 @@ parseSource fileName source =
 
 
 
+sourced :: Parser a -> Parser (a, String)
+sourced p = do
+    input <- MP.getInput
+    before <- MP.getOffset
+    r <- p
+    after <- MP.getOffset
+    return (r, take (after - before) input)
+
+
+
 spaceWithComments :: Parser ()
 spaceWithComments =
     MP.space
@@ -75,12 +85,14 @@ clause = syntaxTypeClause <|> lexemeSynonymClause
 
 syntaxTypeClause :: Parser CSML.Clause
 syntaxTypeClause = do
-    tn <- typeName
-    vns <- sepBy1 variableName comma
-    _ <- coloncolonequals
-    rs <- sepBy1 rule pipe
-    _ <- semicolon
-    return (CSML.SyntaxTypeClause tn vns rs)
+    ((tn, vns, rs), src) <- sourced $ do
+        tn <- typeName
+        vns <- sepBy1 variableName comma
+        _ <- coloncolonequals
+        rs <- sepBy1 rule pipe
+        _ <- semicolon
+        return (tn, vns, rs)
+    return (CSML.SyntaxTypeClause [CSML.MetaSourceText src] tn vns rs)
 
 lexemeSynonymClause :: Parser CSML.Clause
 lexemeSynonymClause = do
@@ -88,7 +100,7 @@ lexemeSynonymClause = do
     _ <- equals
     lx <- lexeme
     _ <- semicolon
-    return (CSML.LexemeSynonymClause vn lx)
+    return (CSML.LexemeSynonymClause [] vn lx)
 
 typeName :: Parser CSML.TypeName
 typeName = CSML.TypeName <$> rawTypeName
@@ -109,9 +121,13 @@ variableName = CSML.VariableName <$> rawVariableName
             return (c:cs)
 
 rule :: Parser CSML.Rule
-rule = do parts <- some rulePart
-          rn <- parens ruleName
-          return (CSML.Rule rn parts)
+rule = do
+    ((parts, rn), src) <- sourced $ do
+        parts <- some rulePart
+        rn <- parens ruleName
+        return (parts, rn)
+    
+    return (CSML.Rule [CSML.MetaSourceText src] rn parts)
 
 ruleName :: Parser CSML.RuleName
 ruleName = CSML.RuleName <$> rawRuleName

@@ -17,12 +17,6 @@ type CSMLParseError = Void
 type SourceCode = String
 
 
-spaceWithComments :: Parser ()
-spaceWithComments =
-    MP.space
-        MP.space1
-        (MP.skipLineComment "--")
-        (MP.skipBlockComment "{-" "-}")
 
 parseSource :: String
             -> String
@@ -30,6 +24,14 @@ parseSource :: String
 parseSource =
     MP.parse (spaceWithComments *> grammar <* MP.eof)
 
+
+
+spaceWithComments :: Parser ()
+spaceWithComments =
+    MP.space
+        MP.space1
+        (MP.skipLineComment "--")
+        (MP.skipBlockComment "{-" "-}")
 
 symbol :: Parser a -> Parser a
 symbol = MP.lexeme spaceWithComments
